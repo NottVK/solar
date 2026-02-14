@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>entrega 2</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --ui-bg: rgba(0,0,12,.55);
+      --ui-bd: rgba(255,255,255,.25);
+      --ui-tx: #e9eeff;
+    }
+    html,body{height:100%;margin:0}
+    body{
+      background: radial-gradient(1400px 900px at 70% 30%, #0e1430 0%, #070a18 45%, #04050d 100%);
+      overflow:hidden; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      color:#fff;
+    }
+    canvas{display:block}
+    #mensaje{
+      position:fixed; left:50%; top:16px; transform:translateX(-50%);
+      background:var(--ui-bg); border:1px solid var(--ui-bd);
+      color:var(--ui-tx); padding:.6rem .9rem; border-radius:14px;
+      backdrop-filter: blur(6px); max-width:min(90vw,900px);
+      text-align:center; box-shadow:0 8px 30px rgba(0,0,0,.4); line-height:1.35;
+      font-size: clamp(14px, 2.2vw, 18px);
+    }
+  </style>
+</head>
+<body>
+  <div id="mensaje">Desvela los secretos del cosmo</div>
+  <canvas id="sky"></canvas>
+
+  <script>
+  const canvas = document.getElementById('sky');
+  const ctx = canvas.getContext('2d');
+  const ui = document.getElementById('mensaje');
+
+ 
+  function resize(){
+    const dpr = Math.max(1, Math.min(2.5, window.devicePixelRatio || 1));
+    canvas.width  = Math.floor(innerWidth  * dpr);
+    canvas.height = Math.floor(innerHeight * dpr);
+    canvas.style.width  = innerWidth + 'px';
+    canvas.style.height = innerHeight + 'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    cx = innerWidth/2; cy = innerHeight/2;
+  }
+  let cx=0, cy=0;
+  resize();
+  addEventListener('resize', resize);
+
+
+  const starLayers = [
+    {n:140, speed:.08, size:[.6,1.8], alpha:[.35,.95]},
+    {n:120, speed:.18, size:[.6,1.4], alpha:[.25,.7]},
+    {n:100, speed:.35, size:[.4,1.1], alpha:[.2,.55]},
+  ];
+  const stars = [];
+  for(const L of starLayers){
+    for(let i=0;i<L.n;i++){
+      stars.push({
+        x: Math.random()*innerWidth,
+        y: Math.random()*innerHeight,
+        r: randRange(...L.size),
+        a: randRange(...L.alpha),
+        tw: Math.random()*Math.PI*2,
+        tws: 0.6 + Math.random()*0.8,
+        layerSpeed: L.speed
+      });
+    }
+  }
+
+  
+  function drawBackground(t){
+    const g = ctx.createLinearGradient(0,0,0,innerHeight);
+    g.addColorStop(0, "#0b0d33");
+    g.addColorStop(1, "#04050d");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,innerWidth,innerHeight);
+
+    
+    const r = Math.hypot(innerWidth, innerHeight)*0.65;
+    const v = ctx.createRadialGradient(cx,cy, r*0.2, cx,cy, r);
+    v.addColorStop(0, "rgba(0,0,0,0)");
+    v.addColorStop(1, "rgba(0,0,0,0.35)");
+    ctx.fillStyle = v;
+    ctx.fillRect(0,0,innerWidth,innerHeight);
+  }
+
+
+  const nebulosas = [
+    { x: () => cx - 320, y: () => cy - 180, r: 260, c: "rgba(120,80,200,0.29)" },
+    { x: () => cx + 260, y: () => cy + 220, r: 320, c: "rgba(200,100,150,0.25)" },
+    { x: () => cx - 40,  y: () => cy + 260, r: 220, c: "rgba(80,150,200,0.20)" }
+  ];
+  function drawNebula(x,y,r,color){
+    const g = ctx.createRadialGradient(x,y,0, x,y,r);
+    g.addColorStop(0, color);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  }
+  function drawNebulosas(t){
+   
+    const wob = Math.sin(t*0.00025)*8;
+    for(const n of nebulosas){
+      drawNebula(n.x()+wob, n.y()-wob, n.r, n.c);
+    }
+  }
+
+  
+  function drawStars(t){
+    for(const s of stars){
+      const pulse = 0.6 + 0.4*Math.sin(s.tw + t*0.0012*s.tws);    
+      const size  = Math.max(0.15, s.r*(0.85 + 0.55*Math.sin(s.tw*1.7 + t*0.0013*s.tws))); 
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, size, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,255,255,${s.a*pulse})`;
+      ctx.fill();
+    }
+  }
+
+  
+  const SOL_RAD = 44;
+
+  const cuerpos = [
+    { nombre:"Sol", tipo:"sol", radio: SOL_RAD, a:0, e:0, w:0, vel:0, spin:0,spinVel:0.00079, color:"#ffdd66",
+      msg:"☀️ Y por mas que brille el sol, queda opaco comparado a tu brillo." },
+   
+    { nombre:"Mercurio", color:"#bfb8b0", radio:5.5, a:70,  e:0.04, w:0.15, vel:0.015, spin:0,spinVel:0.0008,
+      msg:"Eres como mercurio, el mas cercano a mi corazón." },
+    { nombre:"Venus",    color:"#e9c17a", radio:8,   a:100, e:0.02, w:-0.05, vel:0.013, spin:0, spinVel:-0.0008,
+      msg:"No importa si es de dia o de noche, tú eres mi estrella de la mañana, la más brillante de todas" },
+    { nombre:"Tierra",   color:"#3aa0ff", radio:9.5, a:140, e:0.016, w:0.06, vel:0.011, spin:0,spinVel:0.02,
+      msg:"El universo es infinito, pero mi mundo se limita a ti. Eres mi hogar, mi base, mi tierra firme en la que todo mi amor florece." },
+    { nombre:"Marte",    color:"#d3562d", radio:7.5, a:180, e:0.02, w:-0.03, vel:0.010, spin:0,spinVel:0.0192,
+      msg:"Asi como los cientificos buscan la vida en marte to siempre busque una vida contigo. Eres mi planeta rojo, el futuro que anhelo explorar." },
+    { nombre:"Júpiter",  color:"#c49b6a", radio:20,  a:240, e:0.03, w:0.02, vel:0.009,spin:0,spinVel:0.048,
+      msg:"Tu eres como la gran mancha roja de jupiter, una fuerza poderosa y constante, que no deja de asombrarme." },
+    { nombre:"Saturno",  color:"#d8c083", radio:17,  a:310, e:0.04, w:-0.12, vel:0.008,spin:0,spinVel:0.0436,
+      msg:"La distancia de saturno al sol es inmensa, pero su bellez es inconfundible. Asi es nuestro amor: una conexion única y poderosa que se ve en todo el universo." },
+    { nombre:"Urano",    color:"#8ed7e6", radio:14,  a:380, e:0.03, w:0.18, vel:0.007,spin:0,spinVel:-0.0235,
+      msg:"El universo es un lugar de caos y turbulencia, pero tú eres como Urano. Tu presencia me da una calma y una paz tan únicas como la rotación de tu planeta. Me volteaste el mundo de la mejor manera y me hiciste ver que el amor más hermoso es el que es único, extraño y completamente nuestro." },
+    { nombre:"Neptuno",  color:"#3e61ff", radio:14,  a:450, e:0.01, w:-0.07, vel:0.006,spin:0,spinVel:0.03,
+      msg:"Neptuno es un planeta lejano y misterioso, pero su belleza es inconfundible. Así eres tú para mí: el misterio más hermoso y el tesoro más lejano que he encontrado" },
+  ];
+  for (let i=1;i<cuerpos.length;i++){ cuerpos[i].theta = Math.random()*Math.PI*2; }
+
+  let luna = {
+    radio: 3.5,
+    a: 22,           
+    vel: 0.035,      
+    theta: 0,
+    color: "#dddddd",
+    msg:"Tu eres mi luna, la luna de mi vida, aun que no siempre te pueda ver, se que siempre estaras ahi, iluminando mis dias mas oscuros y sacandome de mis pensamientos, y haciendome sentir, que sin importar la distancia, nunca estare solo"
+  };
+
+  let estrellas = [];
+for (let i = 0; i < 150; i++) {
+  estrellas.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    alpha: Math.random(),       
+    delta: (Math.random() * 0.02) 
+  });
+}
+
+
+  let fugaces = [];
+  function spawnFugaz(){
+    const startX = Math.random()*canvas.width;
+    const startY = Math.random()*canvas.height*0.4;
+    fugaces.push({
+      x: startX,
+      y: startY,
+      vx: 5 + Math.random()*3,
+      vy: 2 + Math.random()*2,
+      life: 0
+    });
+  }
+
+  setInterval(spawnFugaz, 3500);
+
+  function drawFugaces(){
+    for (let i=fugaces.length-1; i>=0; i--){
+      const f = fugaces[i];
+      f.x += f.vx;
+      f.y += f.vy;
+      f.life++;
+      ctx.strokeStyle = `rgba(255,255,255,${1 - f.life/60})`;
+      ctx.beginPath();
+      ctx.moveTo(f.x, f.y);
+      ctx.lineTo(f.x - f.vx*4, f.y - f.vy*4);
+      ctx.stroke();
+      if (f.life > 60) fugaces.splice(i,1);
+    }
+  }
+
+
+  let cometas = [
+    { x: -100, y: 200, velocidadX: 2, velocidadY: -1, cola: [],
+        msg:"Eres el cometa que paso por mi vida, tan rapido y brillante, que cambio la orbita de mi corazon"
+     },
+    { x: canvas.width + 100, y: 500, velocidadX: -2, velocidadY: -0.5, cola: [],
+        msg:"Desde que te conoci. mi vida ya no es la misma. Como la cola de un cometa, tu amor ha dejado un rastro de luz y belleza en todo lo que soy"
+     }
+  ];
+
+  function drawCometas(){
+    for (let cometa of cometas){
+      cometa.x += cometa.velocidadX;
+      cometa.y += cometa.velocidadY;
+      cometa.cola.unshift({x: cometa.x, y: cometa.y});
+      if (cometa.cola.length > 25) cometa.cola.pop();
+
+      
+      for (let i=0; i<cometa.cola.length; i++){
+        const p = cometa.cola[i];
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(255,255,255,${1 - i/25})`;
+        ctx.fill();
+      }
+
+      
+      ctx.beginPath();
+      ctx.arc(cometa.x, cometa.y, 3.5, 0, Math.PI*2);
+      ctx.fillStyle = "#fff";
+      ctx.fill();
+
+      
+      if (cometa.x < -150 || cometa.x > canvas.width+150 || cometa.y < -150 || cometa.y > canvas.height+150){
+        cometa.x = Math.random() > 0.5 ? -100 : canvas.width+100;
+        cometa.y = Math.random()*canvas.height;
+        cometa.velocidadX = (Math.random()>0.5?1:-1) * (1+Math.random()*2);
+        cometa.velocidadY = (Math.random()>0.5?-1:1) * Math.random();
+        cometa.cola = [];
+      }
+    }
+  }
+ 
+  function drawSun(t){
+   
+    const g = ctx.createRadialGradient(cx,cy, 8, cx,cy, 120);
+    g.addColorStop(0, "rgba(255,230,120,1)");
+    g.addColorStop(0.55, "rgba(255,170,60,0.55)");
+    g.addColorStop(1, "rgba(255,130,30,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx,cy, 120, 0, Math.PI*2); ctx.fill();
+
+   
+    const d = ctx.createRadialGradient(cx,cy, 6, cx,cy, SOL_RAD);
+    d.addColorStop(0, "#fff4bf");
+    d.addColorStop(1, "#ffb54a");
+    ctx.beginPath(); ctx.arc(cx,cy, SOL_RAD, 0, Math.PI*2); ctx.fill();
+  }
+
+  
+  function orbitPos(a, e, theta, w){
+    const b = a*Math.sqrt(1-e*e);
+    const x = a*Math.cos(theta);
+    const y = b*Math.sin(theta);
+   
+    const xr = x*Math.cos(w) - y*Math.sin(w);
+    const yr = x*Math.sin(w) + y*Math.cos(w);
+    return {x: cx + xr, y: cy + yr};
+  }
+
+  
+  function shadePlanet(x,y,r,baseColor){
+    
+    const ang = Math.atan2(y-cy, x-cx);
+    const lx = x - Math.cos(ang)*r*0.6;
+    const ly = y - Math.sin(ang)*r*0.6;
+    const grad = ctx.createRadialGradient(lx, ly, r*0.1, x, y, r*1.15);
+    grad.addColorStop(0, lighten(baseColor, .45));
+    grad.addColorStop(0.55, baseColor);
+    grad.addColorStop(1, "rgba(0,0,0,0.75)");
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  }
+
+
+  function drawEarth(x, y, r, spin) {
+    ctx.save();
+    ctx.translate(x, y);    
+    ctx.rotate(spin);         
+
+   
+    const grad = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r);
+    grad.addColorStop(0, "#5cc16a"); 
+    grad.addColorStop(1, "#2d78cc"); 
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    
+    ctx.fillStyle = "#5cc16a";
+    ctx.globalAlpha = 0.8;
+    for (let i = 0; i < 5; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const rr = r * (0.2 + Math.random() * 0.25);
+        ctx.beginPath();
+        ctx.ellipse(Math.cos(a) * r * 0.3, Math.sin(a) * r * 0.25, rr * 0.7, rr * 0.45, a, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    
+    ctx.globalAlpha = 0.15;
+    ctx.beginPath();
+    ctx.arc(-r * 0.25, -r * 0.25, r * 0.9, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    ctx.restore(); 
+}
+
+
+
+function drawJupiter(x, y, r, spin){
+    ctx.save();
+    ctx.translate(x, y);  
+    ctx.rotate(spin);     
+
+    shadePlanet(0, 0, r, "#caa178");
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI*2);
+    ctx.clip();
+
+    const bands = [
+        "#caa178","#b98c64","#dfc2a2","#b98c64","#caa178","#b98c64","#dfc2a2"
+    ];
+    let yy = -r;
+    for(const b of bands){
+        ctx.fillStyle = b;
+        ctx.fillRect(-r, yy, r*2, r*0.35);
+        yy += r*0.35;
+    }
+
+    ctx.globalAlpha = 0.9;
+    ctx.fillStyle = "#c45a3a";
+    ctx.beginPath();
+    ctx.ellipse(r*0.35, 0.15*r, r*0.45, r*0.28, 0.25, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.restore();
+}
+
+
+  function drawSaturn(x,y,r,theta){
+   
+    shadePlanet(x,y,r,"#d8c083");
+    
+    ctx.save();
+    ctx.translate(x,y);
+    ctx.rotate(-.6); 
+    const inner = r*1.3, outer = r*2.1;
+    for(let i=0;i<7;i++){
+      const t = i/6;
+      ctx.strokeStyle = `rgba(210,190,140,${.55 - t*0.25})`;
+      ctx.lineWidth = 4 - t*2;
+      ctx.beginPath();
+      ctx.ellipse(0,0, lerp(inner, outer, t), lerp(inner*.6, outer*.6, t), 0, 0, Math.PI*2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawGeneric(x,y,r,color){
+    shadePlanet(x,y,r,color);
+  }
+  
+
+
+  function drawOrbit(a,e,w){
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(w);
+    const b = a*Math.sqrt(1-e*e);
+    ctx.strokeStyle = "rgba(255,255,255,.12)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.ellipse(0,0, a, b, 0, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  
+  let last=0;
+  function loop(t){
+    const dt = (t-last)||16; last=t;
+
+    
+    ctx.clearRect(0,0,innerWidth,innerHeight);
+    drawBackground(t);
+    drawNebulosas(t);
+
+    drawStars(t);
+
+    drawSun(t);
+
+    
+
+   
+    for(let i=1;i<cuerpos.length;i++){
+      const c = cuerpos[i];
+      c.theta += c.vel * dt*0.06; 
+      const pos = orbitPos(c.a, c.e, c.theta, c.w);
+      c.x = pos.x; c.y = pos.y;
+
+      if (c.nombre==="Tierra")       drawEarth(c.x,c.y,c.radio);
+      else if (c.nombre==="Júpiter") drawJupiter(c.x,c.y,c.radio);
+      else if (c.nombre==="Saturno") drawSaturn(c.x,c.y,c.radio,c.theta);
+      else                           drawGeneric(c.x,c.y,c.radio,c.color);
+    }
+
+     const tierra = cuerpos.find(c => c.nombre==="Tierra");
+    if (tierra){
+      luna.theta += luna.vel * dt*0.06;
+      luna.x = tierra.x + Math.cos(luna.theta) * luna.a;
+      luna.y = tierra.y + Math.sin(luna.theta) * luna.a;
+      ctx.beginPath();
+      ctx.arc(luna.x, luna.y, luna.radio, 0, Math.PI*2);
+      ctx.fillStyle = luna.color;
+      ctx.fill();
+    }
+for (let estrella of estrellas) {
+ 
+  estrella.alpha += estrella.delta;
+  if (estrella.alpha <= 0.3 || estrella.alpha >= 1) {
+    estrella.delta *= -1; 
+  }
+  ctx.fillStyle = `rgba(255,255,255,${estrella.alpha})`;
+  ctx.fillRect(estrella.x, estrella.y, 2, 2);
+}
+tierra.spin += tierra.spinVel * dt * 0.02;
+drawEarth(tierra.x, tierra.y, tierra.radio, tierra.spin);
+
+
+
+
+    drawCometas();
+    drawFugaces();
+
+
+   
+
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+
+  
+
+
+  
+  function show(msg){
+    ui.textContent = "💬 " + msg;
+  }
+  function hitTest(px,py, x,y,r){ const dx=px-x, dy=py-y; return Math.hypot(dx,dy) <= r+6; }
+
+  function handlePointer(px,py){
+    
+    if (hitTest(px,py,cx,cy,SOL_RAD)) { show(cuerpos[0].msg); return; }
+   
+    for(let i=1;i<cuerpos.length;i++){
+      const c = cuerpos[i];
+      if (hitTest(px,py,c.x,c.y,c.radio)){ show(c.msg); return; }
+    }
+     for (let cometa of cometas){
+    if (hitTest(px,py, cometa.x, cometa.y, 10)){ 
+      show(cometa.msg); 
+      return; 
+    }
+  }
+    if (hitTest(px, py, luna.x, luna.y, luna.radio+8)) {
+  show(luna.msg);
+  return;
+}
+}
+  
+
+  canvas.addEventListener('click', e => handlePointer(e.clientX, e.clientY), {passive:true});
+  canvas.addEventListener('touchstart', e => {
+    const t = e.changedTouches[0];
+    handlePointer(t.clientX, t.clientY);
+  }, {passive:true});
+  
+  
+
+  
+  function randRange(a,b){ return a + Math.random()*(b-a); }
+  function lerp(a,b,t){ return a+(b-a)*t; }
+  function lighten(hex, amt){
+    const c = hexToRgb(hex); const k = 255*amt;
+    return `rgb(${clamp(c.r+k)},${clamp(c.g+k)},${clamp(c.b+k)})`;
+  }
+  function clamp(v){ return Math.max(0, Math.min(255, v|0)); }
+  function hexToRgb(hex){
+    if (hex[0]==='#') hex = hex.slice(1);
+    if (hex.length===3) hex = hex.split('').map(h=>h+h).join('');
+    const num = parseInt(hex,16);
+    return {r:(num>>16)&255, g:(num>>8)&255, b:num&255};
+
+  }
+  </script>
+</body>
+</html>
